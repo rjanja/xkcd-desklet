@@ -8,6 +8,7 @@ const GLib = imports.gi.GLib;
 const Tweener = imports.ui.tweener;
 const Util = imports.misc.util;
 
+const Tooltips = imports.ui.tooltips;
 const PopupMenu = imports.ui.popupMenu;
 const Cinnamon = imports.gi.Cinnamon;
 const Soup = imports.gi.Soup
@@ -81,6 +82,41 @@ MyDesklet.prototype = {
         return true;
     },
 
+    query_tooltip: function(widget, x, y, keyboard_mode, tooltip, user_data) {
+        global.log('query tooltip');
+    },
+
+    set_tooltip: function(tip) {
+        //global.log('set_tooltip');
+        if (tip !== null) {
+            //this._photoFrame.hide();
+            //this._photoFrame.tooltip_text = '                                                                                                                                                                                            ';
+            
+            this._photoFrame.tooltip_text = tip;
+            //this._photoFrame.show_tooltip();
+            //this._photoFrame.hide_tooltip();
+            //this._photoFrame.show();
+            //this._photoFrame.hover = false;
+            //this._photoFrame.reactive = true;
+            //this.emit('allocation-changed');
+            //this._photoFrame.tooltip_markup = '<span font_size="large" foreground="black" background="white">hello!</span>'; // ' + tip + '
+            //this._photoFrame.tooltip_markup = '<markup>hi there how are you hello!is cool!</markup>'; // ' + tip + '
+            //global.log(this._photoFrame.tooltip_markup);
+            //global.log(this._photoFrame.tooltip_window);
+            //this._photoFrame.show_help();
+            //this._photoFrame.trigger_tooltip_query();
+        }
+        else {
+            //this._photoFrame.hide_tooltip();
+            this._photoFrame.tooltip_text = null;
+            //this._photoFrame.show_tooltip();
+            //this._photoFrame.tooltip_text = null;
+            //this._photoFrame.reactive = false;
+            //this._photoFrame.track_hover = true;
+            //this._photoFrame.hover = false;
+        }
+    },
+
     on_json_downloaded: function(success, filename, cached) {
         if (success) {
             this.curXkcd = JSON.parse(Cinnamon.get_file_contents_utf8_sync(filename));
@@ -93,12 +129,13 @@ MyDesklet.prototype = {
             this._currentXkcd = this.curXkcd.num;
 
             let tempFile, jsonFile;
-
-            if (cached !== true) {
-                tempFile = Gio.file_new_for_path(filename);
+            let finalFilename = this.save_path + '/' + this.curXkcd.num + '.json';
             
+            if (cached !== true && filename != finalFilename) {
+                tempFile = Gio.file_new_for_path(filename);
+                
                 try {
-                    jsonFile = Gio.file_new_for_path(this.save_path + '/' + this.curXkcd.num + '.json');
+                    jsonFile = Gio.file_new_for_path(finalFilename);
                     jsonFile.trash(null);
                 }
                 catch (e) {}
@@ -109,6 +146,7 @@ MyDesklet.prototype = {
                 catch (e) {}
             }
             
+            this.set_tooltip(null);
             
             let imgFilename = this.save_path + '/' + this.curXkcd.num + '.png';
             let imgFile = Gio.file_new_for_path(imgFilename);
@@ -151,6 +189,7 @@ MyDesklet.prototype = {
             this._files = [];
             this._xkcds = [];
             this._currentXkcd = null;
+            
 
             this.setHeader(_("xkcd"));
 
@@ -160,6 +199,11 @@ MyDesklet.prototype = {
             this._clutterTexture = new Clutter.Texture({
                 keep_aspect_ratio: true, 
                 filter_quality: this.metadata["quality"]});
+            this._clutterTexture.connect('load-finished', Lang.bind(this, function(e) {
+                if (this.curXkcd && this.curXkcd['alt']) {
+                    this.set_tooltip(this.curXkcd.alt);
+                }
+            }));
             this._clutterTexture.set_load_async(true);
             this._clutterBox.set_layout_manager(this._binLayout);
             this._clutterBox.set_width(this.metadata["width"]);
@@ -167,6 +211,7 @@ MyDesklet.prototype = {
             this._photoFrame.set_child(this._clutterBox);            
             this.setContent(this._photoFrame);
 
+            
             this._menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
             this._menu.addAction(_("View latest xkcd"), Lang.bind(this, function() {
                 this.refresh(null);
@@ -181,6 +226,8 @@ MyDesklet.prototype = {
             if (!saveFolder.query_exists(null)) {
                 saveFolder.make_directory_with_parents(null);
             }
+
+            this.set_tooltip(null);
             
             
             let dir = Gio.file_new_for_path(this.save_path);
@@ -210,6 +257,10 @@ MyDesklet.prototype = {
                 this.refresh(this._xkcds[this._xkcds.length - 1]);
                 this._timeoutId = Mainloop.timeout_add_seconds(5, Lang.bind(this, this.refresh));
             }
+
+            
+            
+            global.w = this._photoFrame;
             
         }
         catch (e) {
